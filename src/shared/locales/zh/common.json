@@ -1,0 +1,212 @@
+{
+  "appName": "VoxelViewer",
+  "nav": {
+    "home": "工作空间",
+    "settings": "设置"
+  },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "向下还原",
+    "close": "关闭"
+  },
+  "statusBar": {
+    "ready": "引擎就绪",
+    "grpcIdle": "gRPC {{endpoint}}",
+    "toggleTheme": "切换主题 ({{theme}})"
+  },
+  "toast": {
+    "close": "关闭通知",
+    "grpcConnectedTitle": "gRPC 已连接",
+    "grpcConnectedDescription": "已连接至 {{endpoint}}",
+    "grpcMockConnectedTitle": "gRPC 已连接 (Mock 体素地图)",
+    "grpcMockConnectedDescription": "已从 voxel_map.bin 加载 {{count}} 个体素（{{occupied}} 个占据体素，{{esdf}} 个 ESDF 距离场体素）"
+  },
+  "validation": {
+    "required": "此项不能为空",
+    "invalidHost": "请输入有效的主机名或 IP 地址",
+    "invalidPort": "端口号必须在 1 到 65535 之间",
+    "outOfRange": "数值必须在 {{min}} 到 {{max}} 之间"
+  },
+  "workspace": {
+    "viewportLabel": "3D 体素视口",
+    "viewportPlaceholder": "正在等待体素地图数据流…",
+    "endpointBadge": "gRPC {{host}}:{{port}}",
+    "voxelResolutionBadge": "体素 {{size}} mm",
+    "loadMockMap": "加载 Mock 体素地图",
+    "resetCamera": "重置视角",
+    "filter": {
+      "all": "全部 ({{count}})",
+      "occupied": "占据 ({{count}})",
+      "esdf": "ESDF ({{count}})"
+    },
+    "telemetry": {
+      "voxels": "体素数",
+      "voxelSize": "分辨率",
+      "frame": "坐标系"
+    },
+    "legend": {
+      "title": "ESDF 碰撞安全距离",
+      "collision": "0 cm (占据碰撞)",
+      "safe": "{{max}} cm (自由净空)"
+    }
+  },
+  "settings": {
+    "title": "通用设置",
+    "description": "使用 electron-store 持久化保存在本地应用配置文件中。",
+    "theme": "外观主题",
+    "language": "界面语言",
+    "versions": "版本信息",
+    "save": "保存修改",
+    "saved": "已保存",
+    "reset": "恢复默认",
+    "grpc": {
+      "title": "gRPC 通信连接",
+      "description": "配置 Python 后端 gRPC 服务器地址、端口及传输层参数。",
+      "host": "服务器地址 (Host / IP)",
+      "hostPlaceholder": "127.0.0.1 或 172.20.10.2",
+      "port": "服务器端口",
+      "portPlaceholder": "50051",
+      "compression": "数据载荷压缩",
+      "maxReceiveMessageMb": "最大接收载荷 (MB)",
+      "requestTimeoutMs": "请求超时时间 (ms)",
+      "reconnectIntervalMs": "断线重连间隔 (ms)",
+      "autoConnect": "应用启动时自动连接 gRPC 服务器",
+      "useTls": "启用 TLS 加密传输通道",
+      "compressionOptions": {
+        "none": "不压缩 (原始二进制)",
+        "gzip": "Gzip",
+        "zstd": "Zstandard (zstd)"
+      }
+    },
+    "voxel": {
+      "title": "体素与 3D 视口渲染",
+      "description": "配置默认 3D 体素网格分辨率、目标帧率以及坐标系辅助参考。",
+      "defaultVoxelSizeMm": "默认体素尺寸 (mm)",
+      "maxVoxelCount": "单帧最大体素数量",
+      "targetFps": "目标渲染帧率",
+      "targetFpsOption": "{{fps}} FPS",
+      "colorMode": "体素着色模式",
+      "colorModes": {
+        "rgb": "碰撞距离 / 真彩色 (RGBA8)",
+        "heightZ": "高度高程色谱 (Z-Height)",
+        "confidence": "ESDF 碰撞距离场标量",
+        "semantic": "占据/预警语义分层着色"
+      },
+      "showGrid": "显示地面参考网格",
+      "showAxes": "显示三维坐标轴 (TF 坐标系)",
+      "showBoundingBox": "显示工作空间 AABB 包围盒"
+    }
+  },
+  "theme": {
+    "system": "跟随系统",
+    "light": "浅色",
+    "dark": "深色"
+  },
+  "language": {
+    "system": "跟随系统",
+    "en": "English",
+    "fr": "Français",
+    "zh": "简体中文"
+  },
+  "update": {
+    "downloaded": "新版本 {{version}} 已下载就绪，可立即安装。",
+    "restart": "立即重启",
+    "notAllowed": "发现新版本 {{version}}，但当前许可证未包含该版本。"
+  },
+  "duration": {
+    "days_one": "{{count}} 天",
+    "days_other": "{{count}} 天",
+    "hours_one": "{{count}} 小时",
+    "hours_other": "{{count}} 小时",
+    "minutes_one": "{{count}} 分钟",
+    "minutes_other": "{{count}} 分钟"
+  },
+  "license": {
+    "activateTitle": "激活 {{name}}",
+    "activateDescription": "请输入购买邮件中提供的许可证密钥。",
+    "key": "许可证密钥",
+    "keyPlaceholder": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+    "activate": "激活",
+    "activating": "正在激活…",
+    "buy": "购买许可证",
+    "renew": "续期许可证",
+    "upgrade": "升级许可证",
+    "manage": "管理许可证",
+    "checkAgain": "重新验证",
+    "renewed": "我已完成续期",
+    "checking": "正在验证许可证…",
+    "anotherKey": "或输入其他许可证密钥",
+    "testProduct": "开发构建版：请使用测试密钥 (TEST-…)。",
+    "states": {
+      "INVALID_KEY": {
+        "title": "无法识别许可证密钥",
+        "description": "许可证密钥 {{key}} 不存在，请检查是否完整复制。"
+      },
+      "EXPIRED": {
+        "title": "许可证已过期",
+        "description": "请续期许可证以继续使用 {{name}}，完成后点击“我已完成续期”。"
+      },
+      "VERSION_NOT_ALLOWED": {
+        "title": "当前版本未包含在许可范围内",
+        "description": "您的许可证支持 {{name}} 至版本 {{version}}。请重新安装该版本，或升级许可证以使用版本 {{current}}。",
+        "descriptionNone": "您的许可证不包含 {{name}} 的 {{current}} 版本，请升级许可证。",
+        "descriptionOffline": "您的许可证不包含 {{name}} 的 {{current}} 版本。请升级许可证，或连接互联网后重新验证。"
+      },
+      "MACHINE_LIMIT_REACHED": {
+        "title": "激活设备数量已达上限",
+        "description": "您的许可证已在达到上限的设备上激活。请在账户中解绑一台设备，然后点击“重新验证”。"
+      },
+      "OFFLINE_EXPIRED": {
+        "title": "请连接互联网",
+        "description": "{{name}} 需要在线验证许可证，请连接互联网后点击“重新验证”。"
+      },
+      "CLOCK_TAMPERED": {
+        "title": "请检查系统日期与时间",
+        "description": "当前计算机的系统日期和时间异常。请在系统设置中开启“自动设置日期和时间”并连接网络。"
+      }
+    },
+    "errors": {
+      "not_found": "无法识别该许可证密钥，请确认是否完整复制。",
+      "license_expired": "该许可证已过期，请续期后使用 {{name}}。",
+      "version_not_allowed": "该许可证支持 {{name}} 至版本 {{version}}，请升级以使用版本 {{current}}。",
+      "version_not_allowed_none": "该许可证不支持 {{name}} 版本 {{current}}，请升级后使用。",
+      "machine_limit_reached": "该许可证已达最大设备激活数量，请在账户中解绑一台设备后重试。",
+      "plan_limit_exceeded": "激活服务暂时不可用，请稍后重试或联系技术支持。",
+      "validation_error": "请输入有效的许可证密钥。",
+      "internal_error": "激活失败，请稍后重试。",
+      "network_error": "无法连接到许可证服务器，请检查网络连接后重试。",
+      "invalid_response": "激活失败，请检查系统日期和时间是否正确。",
+      "unknown": "激活失败，请重试或联系技术支持。"
+    },
+    "stateLabels": {
+      "LOADING": "正在检查…",
+      "MISSING_KEY": "未激活",
+      "ACTIVE": "已激活",
+      "INVALID_KEY": "密钥无效",
+      "EXPIRED": "已过期",
+      "VERSION_NOT_ALLOWED": "版本未包含",
+      "MACHINE_LIMIT_REACHED": "设备数超限",
+      "OFFLINE_EXPIRED": "离线期已过",
+      "CLOCK_TAMPERED": "系统时间异常"
+    },
+    "offlineBanner": "当前处于离线模式，请在 {{duration}} 内连接互联网以继续使用 {{name}}。"
+  },
+  "about": {
+    "version": "版本 {{version}}",
+    "license": "许可证",
+    "key": "密钥",
+    "noKey": "无",
+    "copy": "复制许可证密钥",
+    "copied": "已复制",
+    "status": "状态",
+    "verification": "验证方式",
+    "online": "在线已验证",
+    "offline": "离线模式，剩余可用 {{duration}}",
+    "offlineUntil": "有效期至 {{date}}",
+    "offlineNone": "离线模式，无法验证",
+    "testProduct": "测试许可证 (开发版)",
+    "clockTampered": "计算机日期和时间似乎不准确。",
+    "disabled": "未启用许可证校验。"
+  }
+}

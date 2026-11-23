@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run typecheck
+      - run: npm test
+      # electron-vite starts Electron to compile bytecode. Ubuntu 24.04 blocks the unprivileged user
+      # namespaces Chromium's sandbox needs, so Electron aborts unless they are allowed again.
+      # Electron also needs a display, which xvfb-run provides on the headless Linux runner.
+      - name: Allow the Electron sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: xvfb-run -a npx electron-vite build

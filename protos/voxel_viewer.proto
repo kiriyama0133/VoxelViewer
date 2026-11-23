@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package voxelviewer.v1;
+
+// ============================================================================
+// 1. Spatial Geometry Primitives
+// ============================================================================
+
+message Vec3f {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message Aabb3f {
+  Vec3f min_bound = 1;
+  Vec3f max_bound = 2;
+}
+
+// ============================================================================
+// 2. Unified Occupancy + ESDF Voxel Grid Map Stream Model
+// ============================================================================
+
+enum VoxelEncoding {
+  VOXEL_ENCODING_UNSPECIFIED = 0;
+  // positions_buffer: Float32Array [x0, y0, z0, ...] (12 bytes/voxel)
+  // colors_buffer:    Uint8Array   [r0, g0, b0, a0, ...] (4 bytes/voxel, collision distance colormap)
+  VOXEL_ENCODING_RAW_FLOAT32_XYZ_RGBA8 = 1;
+  // positions_buffer: Uint16Array  [ix0, iy0, iz0, ...] relative to bounds.min_bound + voxel_size_m (6 bytes/voxel)
+  // colors_buffer:    Uint8Array   [r0, g0, b0, a0, ...] (4 bytes/voxel)
+  VOXEL_ENCODING_QUANTIZED_UINT16_XYZ_RGBA8 = 2;
+  // Unified Occupancy + ESDF Voxel Map:
+  // positions_buffer: Float32Array [x0, y0, z0, ...] (12 bytes/voxel)
+  // colors_buffer:    Uint8Array   [r0, g0, b0, state0, ...] (4 bytes/voxel, RGB from ESDF collision distance)
+  // scalars_buffer:   Float32Array [occupancy0, esdf_distance_m0, ...] (8 bytes/voxel)
+  VOXEL_ENCODING_OCCUPANCY_ESDF = 3;
+}
+
+enum PayloadCompression {
+  PAYLOAD_COMPRESSION_NONE = 0;
+  PAYLOAD_COMPRESSION_LZ4 = 1;
+  PAYLOAD_COMPRESSION_ZSTD = 2;
+  PAYLOAD_COMPRESSION_GZIP = 3;
+}
+
+message VoxelGridFrame {
+  uint64 frame_id = 1;
+  uint64 timestamp_ns = 2;
+  string coordinate_frame = 3;         // Reference frame name (e.g. "world", "base_link")
+  float voxel_size_m = 4;              // Voxel edge length in meters (e.g. 0.02 for 20 mm)
+  Aabb3f bounds = 5;                   // Spatial bounding box of the active grid
+  uint32 voxel_count = 6;              // Number of active voxels in this frame
+  VoxelEncoding encoding = 7;          // Memory layout of buffers
+  PayloadCompression compression = 8;  // Buffer compression algorithm
+  bool is_delta = 9;                   // false = full keyframe, true = incremental chunk update
+
+  // Zero-copy binary buffers (SoA layout for direct upload to WebGL/WebGPU InstancedMesh)
+  bytes positions_buffer = 10;
+  bytes colors_buffer = 11;
+  // Packed Float32Array [occupancy_0, esdf_distance_m_0, occupancy_1, esdf_distance_m_1, ...]
+  bytes scalars_buffer = 12;
+
+  // ESDF & Occupancy map metadata
+  float truncation_distance_m = 13;    // Max ESDF collision distance mapped to color (e.g. 0.30 m)
+  float occupancy_threshold = 14;      // Probability threshold for occupied surface (e.g. 0.50)
+}
+
+// ============================================================================
+// 3. gRPC Service Requests & Service Definition
+// ============================================================================
+
+message HandshakeRequest {
+  string client_name = 1;
+  string client_version = 2;
+  repeated VoxelEncoding supported_encodings = 3;
+  repeated PayloadCompression supported_compressions = 4;
+}
+
+message HandshakeResponse {
+  string server_name = 1;
+  string server_version = 2;
+  uint64 server_timestamp_ns = 3;
+}
+
+message VoxelStreamRequest {
+  float target_fps = 1;
+  float min_voxel_size_m = 2;
+  uint32 max_voxels = 3;
+  VoxelEncoding preferred_encoding = 4;
+  PayloadCompression preferred_compression = 5;
+  bool include_scalars = 6;
+}
+
+service VoxelViewerService {
+  // Initial handshake to verify server availability and version compatibility
+  rpc Handshake(HandshakeRequest) returns (HandshakeResponse);
+
+  // High-throughput server-streaming RPC for 3D Occupancy + ESDF voxel maps
+  rpc StreamVoxelFrames(VoxelStreamRequest) returns (stream VoxelGridFrame);
+}

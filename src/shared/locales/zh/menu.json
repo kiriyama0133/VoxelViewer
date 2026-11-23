@@ -1,0 +1,15 @@
+{
+  "file": "文件",
+  "edit": "编辑",
+  "view": "视图",
+  "window": "窗口",
+  "help": "帮助",
+  "appearance": "外观主题",
+  "system": "跟随系统",
+  "light": "浅色",
+  "dark": "深色",
+  "settings": "设置…",
+  "checkForUpdates": "检查更新…",
+  "learnMore": "了解更多",
+  "about": "关于 {{name}}"
+}

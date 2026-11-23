@@ -1,0 +1,212 @@
+{
+  "appName": "VoxelViewer",
+  "nav": {
+    "home": "Workspace",
+    "settings": "Settings"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "statusBar": {
+    "ready": "Engine Ready",
+    "grpcIdle": "gRPC {{endpoint}}",
+    "toggleTheme": "Switch theme ({{theme}})"
+  },
+  "toast": {
+    "close": "Dismiss notification",
+    "grpcConnectedTitle": "gRPC Connected",
+    "grpcConnectedDescription": "Connected to {{endpoint}}",
+    "grpcMockConnectedTitle": "gRPC Connected (Mock Voxel Map)",
+    "grpcMockConnectedDescription": "Loaded {{count}} voxels ({{occupied}} occupied, {{esdf}} ESDF) from voxel_map.bin"
+  },
+  "validation": {
+    "required": "This field cannot be empty",
+    "invalidHost": "Enter a valid host or IP address",
+    "invalidPort": "Port must be between 1 and 65535",
+    "outOfRange": "Value must be between {{min}} and {{max}}"
+  },
+  "workspace": {
+    "viewportLabel": "3D Voxel Viewport",
+    "viewportPlaceholder": "Waiting for Voxel Map stream…",
+    "endpointBadge": "gRPC {{host}}:{{port}}",
+    "voxelResolutionBadge": "Voxel {{size}} mm",
+    "loadMockMap": "Load Mock Voxel Map",
+    "resetCamera": "Reset Camera",
+    "filter": {
+      "all": "All ({{count}})",
+      "occupied": "Occupied ({{count}})",
+      "esdf": "ESDF ({{count}})"
+    },
+    "telemetry": {
+      "voxels": "Voxels",
+      "voxelSize": "Resolution",
+      "frame": "Frame"
+    },
+    "legend": {
+      "title": "ESDF Collision Distance",
+      "collision": "0 cm (Occupied)",
+      "safe": "{{max}} cm (Free)"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Saved in the app config file with electron-store.",
+    "theme": "Theme",
+    "language": "Language",
+    "versions": "Versions",
+    "save": "Save Changes",
+    "saved": "Saved",
+    "reset": "Reset Defaults",
+    "grpc": {
+      "title": "gRPC Connection",
+      "description": "Configure the Python backend gRPC server address, port, and transport parameters.",
+      "host": "Server Address (Host / IP)",
+      "hostPlaceholder": "127.0.0.1 or 172.20.10.2",
+      "port": "Server Port",
+      "portPlaceholder": "50051",
+      "compression": "Payload Compression",
+      "maxReceiveMessageMb": "Max Receive Payload (MB)",
+      "requestTimeoutMs": "Request Timeout (ms)",
+      "reconnectIntervalMs": "Reconnect Interval (ms)",
+      "autoConnect": "Auto-connect to gRPC server on startup",
+      "useTls": "Use TLS encrypted channel",
+      "compressionOptions": {
+        "none": "None (Raw Binary)",
+        "gzip": "Gzip",
+        "zstd": "Zstandard (zstd)"
+      }
+    },
+    "voxel": {
+      "title": "Voxel & Viewport Rendering",
+      "description": "Default 3D voxel grid resolution, frame rate budget, and coordinate overlays.",
+      "defaultVoxelSizeMm": "Default Voxel Size (mm)",
+      "maxVoxelCount": "Max Voxels per Frame",
+      "targetFps": "Target Frame Rate",
+      "targetFpsOption": "{{fps}} FPS",
+      "colorMode": "Voxel Color Mode",
+      "colorModes": {
+        "rgb": "True Color (RGBA8)",
+        "heightZ": "Elevation (Z-Height Colormap)",
+        "confidence": "Confidence / ESDF Scalar",
+        "semantic": "Semantic Target Class"
+      },
+      "showGrid": "Show ground reference grid",
+      "showAxes": "Show coordinate axes (TF frames)",
+      "showBoundingBox": "Show workspace AABB bounding box"
+    }
+  },
+  "theme": {
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "system": "System",
+    "en": "English",
+    "fr": "Français",
+    "zh": "简体中文"
+  },
+  "update": {
+    "downloaded": "Version {{version}} is ready to install.",
+    "restart": "Restart",
+    "notAllowed": "Version {{version}} is available, but your license doesn't include it."
+  },
+  "duration": {
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes"
+  },
+  "license": {
+    "activateTitle": "Activate {{name}}",
+    "activateDescription": "Enter the license key from your purchase email.",
+    "key": "License key",
+    "keyPlaceholder": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+    "activate": "Activate",
+    "activating": "Activating…",
+    "buy": "Buy a license",
+    "renew": "Renew license",
+    "upgrade": "Upgrade license",
+    "manage": "Manage license",
+    "checkAgain": "Check again",
+    "renewed": "I renewed my license",
+    "checking": "Checking your license…",
+    "anotherKey": "Or enter another license key",
+    "testProduct": "Development build: use a test license key (TEST-…).",
+    "states": {
+      "INVALID_KEY": {
+        "title": "License key not recognized",
+        "description": "The license key {{key}} doesn't exist. Check you copied it entirely from your purchase email."
+      },
+      "EXPIRED": {
+        "title": "Your license expired",
+        "description": "Renew your license to keep using {{name}}, then click “I renewed my license”."
+      },
+      "VERSION_NOT_ALLOWED": {
+        "title": "This version is not included",
+        "description": "Your license includes {{name}} up to version {{version}}. Reinstall that version, or upgrade your license to use version {{current}}.",
+        "descriptionNone": "Your license doesn't include version {{current}} of {{name}}. Upgrade your license to use it.",
+        "descriptionOffline": "Your license doesn't include version {{current}} of {{name}}. Upgrade your license, or connect to the internet and check again."
+      },
+      "MACHINE_LIMIT_REACHED": {
+        "title": "Too many computers",
+        "description": "Your license is already used on its maximum number of computers. Deactivate one in your account, then click “Check again”."
+      },
+      "OFFLINE_EXPIRED": {
+        "title": "Connect to the internet",
+        "description": "{{name}} needs to verify your license online. Connect to the internet, then click “Check again”."
+      },
+      "CLOCK_TAMPERED": {
+        "title": "Check your date and time",
+        "description": "Your computer's date and time look wrong. Turn on “Set date and time automatically” in your system settings, then connect to the internet."
+      }
+    },
+    "errors": {
+      "not_found": "This license key wasn't recognized. Check you copied it entirely from your purchase email.",
+      "license_expired": "This license expired. Renew it to use {{name}}.",
+      "version_not_allowed": "This license includes {{name}} up to version {{version}}. Upgrade it to use version {{current}}.",
+      "version_not_allowed_none": "This license doesn't include version {{current}} of {{name}}. Upgrade it to use this version.",
+      "machine_limit_reached": "This license is already used on its maximum number of computers. Deactivate one in your account to use it here.",
+      "plan_limit_exceeded": "Activation is temporarily unavailable. Try again later, or contact support.",
+      "validation_error": "Enter a valid license key.",
+      "internal_error": "Activation failed. Try again in a few minutes.",
+      "network_error": "Couldn't reach the license server. Check your internet connection and try again.",
+      "invalid_response": "Activation failed. Check your computer's date and time are correct.",
+      "unknown": "Activation failed. Try again, or contact support."
+    },
+    "stateLabels": {
+      "LOADING": "Checking…",
+      "MISSING_KEY": "Not activated",
+      "ACTIVE": "Active",
+      "INVALID_KEY": "Key not recognized",
+      "EXPIRED": "Expired",
+      "VERSION_NOT_ALLOWED": "Version not included",
+      "MACHINE_LIMIT_REACHED": "Too many computers",
+      "OFFLINE_EXPIRED": "Can't verify offline",
+      "CLOCK_TAMPERED": "Wrong date and time"
+    },
+    "offlineBanner": "You're offline. Connect to the internet within {{duration}} to keep using {{name}}."
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "license": "License",
+    "key": "Key",
+    "noKey": "None",
+    "copy": "Copy license key",
+    "copied": "Copied",
+    "status": "Status",
+    "verification": "Verification",
+    "online": "Verified online",
+    "offline": "Offline, works for {{duration}} more",
+    "offlineUntil": "Until {{date}}",
+    "offlineNone": "Offline, can't verify",
+    "testProduct": "Test license (development build)",
+    "clockTampered": "Your computer's date and time look wrong.",
+    "disabled": "Licensing is not configured."
+  }
+}
