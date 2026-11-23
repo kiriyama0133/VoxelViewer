@@ -1,20 +1,23 @@
 import { GizmoHelper, GizmoViewport, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Button } from '@renderer/components/ui/button'
-import type { VoxelColorMode, VoxelConfig } from '@shared/config'
 import {
-  decodeOccupancyEsdfScalars,
-  decodeQuantizedUint16Positions,
-  decodeRawFloat32Positions,
-  esdfDistanceToRgb,
-  type VoxelGridFrame
-} from '@shared/grpc'
+  DEFAULT_CAMERA_POS,
+  DEFAULT_CAMERA_TARGET,
+  type DecodedVoxelFrame,
+  useDecodedVoxelFrame,
+  useVoxelAabbWireframe,
+  useVoxelCameraControls,
+  useVoxelInstancedMesh,
+  type VoxelLayerFilter
+} from '@renderer/hooks'
+import type { VoxelColorMode, VoxelConfig } from '@shared/config'
+import type { VoxelGridFrame } from '@shared/grpc'
 import { BoxIcon, DatabaseIcon, RotateCcwIcon } from 'lucide-react'
-import { type ComponentRef, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as THREE from 'three'
 
-export type VoxelLayerFilter = 'all' | 'occupied' | 'esdf'
+export type { VoxelLayerFilter }
 
 export interface VoxelViewportProps {
   frame: VoxelGridFrame | null
@@ -24,9 +27,6 @@ export interface VoxelViewportProps {
   onLoadMockVoxelMap?: () => void
   isLoadingMock?: boolean
 }
-
-const DEFAULT_CAMERA_POS: [number, number, number] = [0.68, -0.68, 0.52]
-const DEFAULT_CAMERA_TARGET: [number, number, number] = [0, 0, 0.18]
 
 export function VoxelViewport({
   frame,
@@ -38,70 +38,14 @@ export function VoxelViewport({
 }: VoxelViewportProps) {
   const { t } = useTranslation()
   const [layerFilter, setLayerFilter] = useState<VoxelLayerFilter>('all')
-  const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
+  const { controlsRef, resetCamera } = useVoxelCameraControls()
+  const decoded = useDecodedVoxelFrame(frame, voxelConfig.defaultVoxelSizeMm)
 
-  const decoded = useMemo(() => {
-    if (!frame || frame.voxelCount === 0) return null
-
-    const positions =
-      frame.encoding === 'VOXEL_ENCODING_QUANTIZED_UINT16_XYZ_RGBA8'
-        ? decodeQuantizedUint16Positions(
-            frame.positionsBuffer,
-            frame.voxelCount,
-            frame.bounds.minBound,
-            frame.voxelSizeM
-          )
-        : decodeRawFloat32Positions(frame.positionsBuffer, frame.voxelCount)
-
-    const scalars =
-      frame.scalarsBuffer && frame.scalarsBuffer.byteLength >= frame.voxelCount * 8
-        ? decodeOccupancyEsdfScalars(frame.scalarsBuffer, frame.voxelCount)
-        : null
-
-    const threshold = frame.occupancyThreshold ?? 0.5
-    let occupiedCount = 0
-    let esdfCount = 0
-
-    if (scalars) {
-      for (let i = 0; i < frame.voxelCount; i++) {
-        const occ = scalars[i * 2]
-        const esdf = scalars[i * 2 + 1]
-        if (occ >= threshold || esdf <= 0) {
-          occupiedCount++
-        } else {
-          esdfCount++
-        }
-      }
-    } else {
-      occupiedCount = frame.voxelCount
-    }
-
-    return {
-      positions,
-      colors: frame.colorsBuffer,
-      scalars,
-      occupiedCount,
-      esdfCount,
-      threshold,
-      truncationDistanceM: frame.truncationDistanceM ?? 0.24
-    }
-  }, [frame])
-
-  const resetCamera = () => {
-    const controls = controlsRef.current
-    if (!controls) return
-    controls.object.position.set(...DEFAULT_CAMERA_POS)
-    controls.target.set(...DEFAULT_CAMERA_TARGET)
-    controls.update()
-  }
-
-  const totalCount = frame?.voxelCount ?? 0
+  const totalCount = decoded?.totalCount ?? 0
   const occupiedCount = decoded?.occupiedCount ?? 0
   const esdfCount = decoded?.esdfCount ?? 0
-  const voxelSizeMm = frame
-    ? Math.round(frame.voxelSizeM * 1000 * 10) / 10
-    : voxelConfig.defaultVoxelSizeMm
-  const maxEsdfCm = Math.round((decoded?.truncationDistanceM ?? 0.24) * 100)
+  const voxelSizeMm = decoded?.voxelSizeMm ?? voxelConfig.defaultVoxelSizeMm
+  const maxEsdfCm = decoded?.maxEsdfCm ?? 24
 
   return (
     <section
@@ -153,11 +97,7 @@ export function VoxelViewport({
         {frame && decoded && (
           <InstancedVoxelCloud
             frame={frame}
-            positions={decoded.positions}
-            colors={decoded.colors}
-            scalars={decoded.scalars}
-            threshold={decoded.threshold}
-            truncationDistanceM={decoded.truncationDistanceM}
+            decoded={decoded}
             layerFilter={layerFilter}
             colorMode={voxelConfig.colorMode}
             maxVoxels={voxelConfig.maxVoxelCount}
@@ -278,112 +218,24 @@ export function VoxelViewport({
 
 function InstancedVoxelCloud({
   frame,
-  positions,
-  colors,
-  scalars,
-  threshold,
-  truncationDistanceM,
+  decoded,
   layerFilter,
   colorMode,
   maxVoxels
 }: {
   frame: VoxelGridFrame
-  positions: Float32Array
-  colors: Uint8Array
-  scalars: Float32Array | null
-  threshold: number
-  truncationDistanceM: number
+  decoded: DecodedVoxelFrame
   layerFilter: VoxelLayerFilter
   colorMode: VoxelColorMode
   maxVoxels: number
 }) {
-  const meshRef = useRef<THREE.InstancedMesh | null>(null)
-  const capacity = Math.max(1, Math.min(frame.voxelCount, maxVoxels))
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current
-    if (!mesh) return
-
-    const dummy = new THREE.Object3D()
-    const color = new THREE.Color()
-    const hadInstanceColor = mesh.instanceColor !== null
-
-    const limit = Math.min(frame.voxelCount, capacity)
-    const minZ = frame.bounds.minBound.z
-    const spanZ = Math.max(1e-4, frame.bounds.maxBound.z - minZ)
-    const baseSize = frame.voxelSizeM > 0 ? frame.voxelSizeM : 0.02
-
-    let instanceIdx = 0
-
-    for (let i = 0; i < limit; i++) {
-      const occ = scalars ? scalars[i * 2] : 1
-      const esdf = scalars ? scalars[i * 2 + 1] : 0
-      const isOccupied = scalars ? occ >= threshold || esdf <= 0 : true
-
-      if (layerFilter === 'occupied' && !isOccupied) continue
-      if (layerFilter === 'esdf' && isOccupied) continue
-
-      const x = positions[i * 3]
-      const y = positions[i * 3 + 1]
-      const z = positions[i * 3 + 2]
-
-      // Occupied voxels render as full cubes; outer ESDF distance-field voxels render as compact markers
-      const scale = isOccupied
-        ? baseSize * 0.92
-        : layerFilter === 'esdf'
-          ? baseSize * 0.68
-          : baseSize * 0.36
-
-      dummy.position.set(x, y, z)
-      dummy.scale.setScalar(scale)
-      dummy.updateMatrix()
-      mesh.setMatrixAt(instanceIdx, dummy.matrix)
-
-      if (colorMode === 'heightZ') {
-        const tz = Math.min(1, Math.max(0, (z - minZ) / spanZ))
-        const mapped = esdfDistanceToRgb(tz * truncationDistanceM, truncationDistanceM)
-        color.setRGB(mapped.r / 255, mapped.g / 255, mapped.b / 255)
-      } else if (colorMode === 'confidence' && scalars) {
-        const mapped = esdfDistanceToRgb(esdf, truncationDistanceM)
-        color.setRGB(mapped.r / 255, mapped.g / 255, mapped.b / 255)
-      } else if (colorMode === 'semantic' && scalars) {
-        if (isOccupied) {
-          color.setRGB(239 / 255, 68 / 255, 68 / 255)
-        } else if (esdf <= 0.06) {
-          color.setRGB(249 / 255, 115 / 255, 22 / 255)
-        } else {
-          color.setRGB(14 / 255, 165 / 255, 233 / 255)
-        }
-      } else {
-        const r = colors[i * 4] ?? 200
-        const g = colors[i * 4 + 1] ?? 200
-        const b = colors[i * 4 + 2] ?? 200
-        color.setRGB(r / 255, g / 255, b / 255)
-      }
-
-      mesh.setColorAt(instanceIdx, color)
-      instanceIdx++
-    }
-
-    mesh.count = instanceIdx
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) {
-      mesh.instanceColor.needsUpdate = true
-      if (!hadInstanceColor) {
-        ;(mesh.material as THREE.Material).needsUpdate = true
-      }
-    }
-  }, [
+  const { meshRef, capacity } = useVoxelInstancedMesh({
     frame,
-    positions,
-    colors,
-    scalars,
-    threshold,
-    truncationDistanceM,
+    decoded,
     layerFilter,
     colorMode,
-    capacity
-  ])
+    maxVoxels
+  })
 
   return (
     <instancedMesh
@@ -399,24 +251,10 @@ function InstancedVoxelCloud({
 }
 
 function WorkspaceAabbWireframe({ frame }: { frame: VoxelGridFrame }) {
-  const { minBound, maxBound } = frame.bounds
-  const sizeX = Math.max(0.02, maxBound.x - minBound.x + frame.voxelSizeM)
-  const sizeY = Math.max(0.02, maxBound.y - minBound.y + frame.voxelSizeM)
-  const sizeZ = Math.max(0.02, maxBound.z - minBound.z + frame.voxelSizeM)
-
-  const centerX = (minBound.x + maxBound.x) / 2
-  const centerY = (minBound.y + maxBound.y) / 2
-  const centerZ = (minBound.z + maxBound.z) / 2
-
-  const edgesGeometry = useMemo(() => {
-    const box = new THREE.BoxGeometry(sizeX, sizeY, sizeZ)
-    const edges = new THREE.EdgesGeometry(box)
-    box.dispose()
-    return edges
-  }, [sizeX, sizeY, sizeZ])
+  const { center, edgesGeometry } = useVoxelAabbWireframe(frame)
 
   return (
-    <lineSegments position={[centerX, centerY, centerZ]} geometry={edgesGeometry}>
+    <lineSegments position={center} geometry={edgesGeometry}>
       <lineBasicMaterial color="#64748b" transparent opacity={0.45} />
     </lineSegments>
   )
