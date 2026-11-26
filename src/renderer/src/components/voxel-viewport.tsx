@@ -38,7 +38,7 @@ export function VoxelViewport({
 }: VoxelViewportProps) {
   const { t } = useTranslation()
   const [layerFilter, setLayerFilter] = useState<VoxelLayerFilter>('all')
-  const { controlsRef, resetCamera } = useVoxelCameraControls()
+  const { controlsRef, resetCamera } = useVoxelCameraControls(frame)
   const decoded = useDecodedVoxelFrame(frame, voxelConfig.defaultVoxelSizeMm)
 
   const totalCount = decoded?.totalCount ?? 0

@@ -22,7 +22,7 @@ export const targetFpsSchema = z.enum(['30', '60', '120'])
 export type TargetFps = z.infer<typeof targetFpsSchema>
 
 export const grpcConfigSchema = z.object({
-  host: z.string().trim().min(1).default('127.0.0.1'),
+  host: z.string().trim().min(1).default('172.20.10.2'),
   port: z.number().int().min(1).max(65535).default(50051),
   autoConnect: z.boolean().default(true),
   reconnectIntervalMs: z.number().int().min(200).max(60000).default(2000),

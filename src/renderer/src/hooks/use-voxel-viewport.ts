@@ -189,21 +189,55 @@ export function useDecodedVoxelFrame(
 export type OrbitControlsHandle = ComponentRef<typeof OrbitControls>
 
 /**
- * Hook that manages OrbitControls ref and camera reset behavior.
+ * Hook that manages OrbitControls ref, automatic initial bounding-box centering, and camera reset behavior.
  */
-export function useVoxelCameraControls(): {
+export function useVoxelCameraControls(frame?: VoxelGridFrame | null): {
   controlsRef: RefObject<OrbitControlsHandle | null>
   resetCamera: () => void
 } {
   const controlsRef = useRef<OrbitControlsHandle | null>(null)
+  const autoCenteredRef = useRef(false)
 
-  const resetCamera = useCallback(() => {
+  const focusOnFrameBounds = useCallback((targetFrame?: VoxelGridFrame | null) => {
     const controls = controlsRef.current
     if (!controls) return
+    if (targetFrame && targetFrame.voxelCount > 0 && targetFrame.bounds) {
+      const { minBound, maxBound } = targetFrame.bounds
+      const cx = 0.5 * (minBound.x + maxBound.x)
+      const cy = 0.5 * (minBound.y + maxBound.y)
+      const cz = 0.5 * (minBound.z + maxBound.z)
+      if (Number.isFinite(cx) && Number.isFinite(cy) && Number.isFinite(cz)) {
+        const span = Math.max(
+          0.35,
+          maxBound.x - minBound.x,
+          maxBound.y - minBound.y,
+          maxBound.z - minBound.z
+        )
+        controls.target.set(cx, cy, cz)
+        controls.object.position.set(cx + span * 0.85, cy - span * 0.85, cz + span * 0.65)
+        controls.update()
+        return
+      }
+    }
     controls.object.position.set(...DEFAULT_CAMERA_POS)
     controls.target.set(...DEFAULT_CAMERA_TARGET)
     controls.update()
   }, [])
+
+  useEffect(() => {
+    if (!frame || frame.voxelCount === 0) {
+      autoCenteredRef.current = false
+      return
+    }
+    if (!autoCenteredRef.current && controlsRef.current) {
+      autoCenteredRef.current = true
+      focusOnFrameBounds(frame)
+    }
+  }, [frame, focusOnFrameBounds])
+
+  const resetCamera = useCallback(() => {
+    focusOnFrameBounds(frame)
+  }, [focusOnFrameBounds, frame])
 
   return { controlsRef, resetCamera }
 }

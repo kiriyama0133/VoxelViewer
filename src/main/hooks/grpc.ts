@@ -1,15 +1,23 @@
-import { createConnection, type Socket } from 'node:net'
+import { createConnection, createServer, type Server, type Socket } from 'node:net'
 import type { GrpcConfig } from '@shared/config'
 import {
   decodeOccupancyEsdfScalars,
   type GrpcConnectionStatus,
   type HandshakeResponse,
+  VOXEL_MAP_CELL_STRIDE,
+  VOXEL_MAP_HEADER_BYTES,
+  VOXEL_MAP_MAGIC,
   type VoxelGridFrame,
   type VoxelStreamRequest
 } from '@shared/grpc'
 import { config } from '../config'
 import { appEvents } from '../events'
-import { createMockGrpcTransport, isMockMode, readMockVoxelMapBin } from './mock'
+import {
+  createMockGrpcTransport,
+  decodeVoxelMapBuffer,
+  isMockMode,
+  readMockVoxelMapBin
+} from './mock'
 
 /**
  * Pluggable transport interface for `VoxelViewerService` (defined in `protos/voxel_viewer.proto`).
@@ -27,25 +35,69 @@ export interface GrpcTransport {
 
 export type GrpcTransportFactory = (grpcConfig: GrpcConfig) => Promise<GrpcTransport>
 
-/**
- * Default socket-verified gRPC transport that probes `host:port` within `requestTimeoutMs`
- * and maintains the active channel lifecycle.
- */
-async function createDefaultTransport(grpcConfig: GrpcConfig): Promise<GrpcTransport> {
-  if (isMockMode()) {
-    return createMockGrpcTransport()
+function attachVxmpStreamParser(
+  socket: Socket,
+  onFrame: (frame: VoxelGridFrame) => void,
+  onError?: (error: Error) => void,
+  initialBuf?: Buffer
+): () => void {
+  let rxBuf: Buffer = initialBuf && initialBuf.length > 0 ? Buffer.from(initialBuf) : Buffer.alloc(0)
+
+  const drainBuffer = () => {
+    while (rxBuf.length >= VOXEL_MAP_HEADER_BYTES) {
+      const magic = rxBuf.readUInt32LE(0)
+      if (magic !== VOXEL_MAP_MAGIC) {
+        const nextIdx = rxBuf.indexOf('VXMP', 1, 'ascii')
+        if (nextIdx === -1) {
+          rxBuf = Buffer.alloc(0)
+          break
+        }
+        rxBuf = rxBuf.subarray(nextIdx)
+        if (rxBuf.length < VOXEL_MAP_HEADER_BYTES) break
+      }
+      const voxelCount = rxBuf.readUInt32LE(12)
+      const frameBytes = VOXEL_MAP_HEADER_BYTES + voxelCount * VOXEL_MAP_CELL_STRIDE
+      if (rxBuf.length < frameBytes) {
+        break
+      }
+      const framePacket = rxBuf.subarray(0, frameBytes)
+      rxBuf = rxBuf.subarray(frameBytes)
+      try {
+        const { frame } = decodeVoxelMapBuffer(framePacket)
+        onFrame(frame)
+      } catch (err) {
+        onError?.(err instanceof Error ? err : new Error(String(err)))
+      }
+    }
   }
 
-  const socket = await new Promise<Socket>((resolve, reject) => {
-    const conn = createConnection({ host: grpcConfig.host, port: grpcConfig.port })
+  const handleData = (chunk: Buffer) => {
+    rxBuf = rxBuf.length === 0 ? chunk : Buffer.concat([rxBuf, chunk])
+    drainBuffer()
+  }
+
+  const handleClose = () => {
+    onError?.(new Error('gRPC stream socket closed by remote peer'))
+  }
+
+  socket.on('data', handleData)
+  socket.once('close', handleClose)
+  if (rxBuf.length >= VOXEL_MAP_HEADER_BYTES) {
+    drainBuffer()
+  }
+  return () => {
+    socket.removeListener('data', handleData)
+    socket.removeListener('close', handleClose)
+  }
+}
+
+function tryOpenSocket(host: string, port: number, timeoutMs: number): Promise<Socket> {
+  return new Promise<Socket>((resolve, reject) => {
+    const conn = createConnection({ host, port })
     const timer = setTimeout(() => {
       conn.destroy()
-      reject(
-        new Error(
-          `Connection to ${grpcConfig.host}:${grpcConfig.port} timed out (${grpcConfig.requestTimeoutMs} ms)`
-        )
-      )
-    }, grpcConfig.requestTimeoutMs)
+      reject(new Error(`Connection to ${host}:${port} timed out (${timeoutMs} ms)`))
+    }, timeoutMs)
 
     conn.once('connect', () => {
       clearTimeout(timer)
@@ -57,6 +109,33 @@ async function createDefaultTransport(grpcConfig: GrpcConfig): Promise<GrpcTrans
       reject(err)
     })
   })
+}
+
+/**
+ * Default socket-verified gRPC transport that probes `host:port` within `requestTimeoutMs`
+ * (with automatic fallback from localhost to Jetson Orin `172.20.10.2`) and maintains the active channel lifecycle.
+ */
+async function createDefaultTransport(grpcConfig: GrpcConfig): Promise<GrpcTransport> {
+  if (isMockMode()) {
+    return createMockGrpcTransport()
+  }
+
+  let socket: Socket
+  try {
+    socket = await tryOpenSocket(grpcConfig.host, grpcConfig.port, grpcConfig.requestTimeoutMs)
+  } catch (primaryErr) {
+    if (grpcConfig.host === '127.0.0.1' || grpcConfig.host === 'localhost') {
+      socket = await tryOpenSocket('172.20.10.2', grpcConfig.port, grpcConfig.requestTimeoutMs)
+    } else {
+      throw primaryErr
+    }
+  }
+
+  let preStreamBuf: Buffer = Buffer.alloc(0)
+  const onEarlyData = (chunk: Buffer) => {
+    preStreamBuf = preStreamBuf.length === 0 ? chunk : Buffer.concat([preStreamBuf, chunk])
+  }
+  socket.on('data', onEarlyData)
 
   return {
     async handshake(): Promise<HandshakeResponse> {
@@ -66,16 +145,14 @@ async function createDefaultTransport(grpcConfig: GrpcConfig): Promise<GrpcTrans
         serverTimestampNs: BigInt(Date.now()) * 1_000_000n
       }
     },
-    startVoxelStream(_request, _onFrame, onError) {
-      const handleClose = () => {
-        onError(new Error('gRPC stream socket closed by remote peer'))
-      }
-      socket.once('close', handleClose)
-      return () => {
-        socket.removeListener('close', handleClose)
-      }
+    startVoxelStream(_request, onFrame, onError) {
+      socket.removeListener('data', onEarlyData)
+      const early = preStreamBuf
+      preStreamBuf = Buffer.alloc(0)
+      return attachVxmpStreamParser(socket, onFrame, onError, early)
     },
     close() {
+      socket.removeListener('data', onEarlyData)
       if (!socket.destroyed) {
         socket.destroy()
       }
@@ -229,7 +306,7 @@ export async function connectGrpc(
     const handshake = await transport.handshake()
     activeTransport = transport
 
-    const connectedStatus = emitStatus({
+    emitStatus({
       state: 'connected',
       isMock: mock,
       connectedAtUnixMs: Date.now(),
@@ -244,12 +321,8 @@ export async function connectGrpc(
       }
     })
 
-    // In Mock mode, immediately load `src/mock/voxel_map.bin` Occupancy + ESDF Voxel Map
-    if (mock) {
-      return await startGrpcStream()
-    }
-
-    return connectedStatus
+    // Always start the 3D Voxel stream immediately upon connection (both real gRPC and Mock mode)
+    return await startGrpcStream()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const next = emitStatus({
@@ -341,6 +414,44 @@ export function stopGrpcStream(): GrpcConnectionStatus {
   return status
 }
 
+let pushReceiverServer: Server | null = null
+
+function startInboundPushReceiver(port: number): void {
+  if (pushReceiverServer || isMockMode()) return
+  try {
+    const srv = createServer((clientSocket) => {
+      emitStatus({
+        state: 'streaming',
+        connectedAtUnixMs: status.connectedAtUnixMs ?? Date.now(),
+        lastError: null,
+        serverInfo: {
+          serverName: 'Jetson Orin Push Streamer',
+          serverVersion: '1.0.0'
+        }
+      })
+      attachVxmpStreamParser(clientSocket, ingestVoxelFrame)
+    })
+    srv.on('error', () => {
+      pushReceiverServer = null
+    })
+    srv.listen(port, '0.0.0.0')
+    pushReceiverServer = srv
+  } catch {
+    pushReceiverServer = null
+  }
+}
+
+function stopInboundPushReceiver(): void {
+  if (pushReceiverServer) {
+    try {
+      pushReceiverServer.close()
+    } catch {
+      // ignore
+    }
+    pushReceiverServer = null
+  }
+}
+
 /**
  * Initializes the gRPC lifecycle hook in the main process:
  * - Watches `config.grpc` changes and updates endpoint or reconnects automatically
@@ -349,6 +460,7 @@ export function stopGrpcStream(): GrpcConnectionStatus {
 export function setupGrpcHook(): void {
   const initial = config.get('grpc')
   status = createInitialStatus(initial)
+  startInboundPushReceiver(initial.port)
 
   config.onChange('grpc', (next, previous) => {
     const endpointChanged =
@@ -375,6 +487,7 @@ export function setupGrpcHook(): void {
 
 /** Cleans up timers, streams, and open sockets on app shutdown. */
 export function disposeGrpcHook(): void {
+  stopInboundPushReceiver()
   disconnectGrpc()
   latestVoxelFrame = null
 }
